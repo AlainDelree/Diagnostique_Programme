@@ -27,6 +27,7 @@ from .model import (
 )
 from .profiles import detect_profile
 from .profiles.base import Profile
+from .verdict import build_verdict
 
 # Seuil « fichier monolithique » (§8.1) : au-delà, un fichier concentre trop.
 MONOLITH_LOC = 400
@@ -59,6 +60,9 @@ def run_audit(repo_path: str, forced_profile: str = "auto") -> AuditResult:
     result.layers = _layer_states(files)
     result.findings = _collect_findings(profile, h, files)
     result.excerpts = _build_excerpts(h, result)
+    # Verdict qualitatif formateur (§8) : dérivé des couches/findings ci-dessus
+    # et du contenu déjà en cache — aucun recalcul ni relecture disque.
+    result.verdict = build_verdict(result, h)
     return result
 
 
