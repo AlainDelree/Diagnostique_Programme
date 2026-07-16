@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.mypy_cache/
+.pytest_cache/
+
+# Sorties d'audit générées (rapports de test sur le dépôt lui-même)
+rapports_audit/
