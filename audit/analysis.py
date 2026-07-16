@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 
+from .dynamic import build_dynamic_checks
 from .engine import Heuristics
 from .model import (
     AuditResult,
@@ -63,6 +64,10 @@ def run_audit(repo_path: str, forced_profile: str = "auto") -> AuditResult:
     # Verdict qualitatif formateur (§8) : dérivé des couches/findings ci-dessus
     # et du contenu déjà en cache — aucun recalcul ni relecture disque.
     result.verdict = build_verdict(result, h)
+    # Pistes de vérification dynamique (§6) : doutes non tranchables en lecture
+    # seule (installe, compile, tests, démarrage) → commandes *suggérées*,
+    # jamais exécutées ici. Dérivées de l'identité technique déjà calculée.
+    result.dynamic_checks = build_dynamic_checks(result)
     return result
 
 

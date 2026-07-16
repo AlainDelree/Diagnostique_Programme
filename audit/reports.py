@@ -165,11 +165,16 @@ def _dynamic_block(result: AuditResult) -> list[str]:
     """Section « Pistes de vérification dynamique » (§6). Rendue si présente."""
     out = ["## Pistes de vérification dynamique (§6 — non exécutées)", ""]
     if not result.dynamic_checks:
-        out.append("- Aucune piste générée (composant §6 non branché).")
+        out.append(
+            "- Aucun doute nécessitant une exécution n'a été identifié "
+            "(techno sans commande fiable à suggérer, ou rien à lancer)."
+        )
         return out
     out.append(
         "_Commandes **suggérées**, jamais lancées par l'audit. Chacune tranche "
-        "un doute qui exigerait une exécution réelle._"
+        "un doute qu'une lecture statique ne peut pas résoudre. À exécuter dans "
+        "un environnement isolé (venv dédié) uniquement si une issue de suivi "
+        "(`SUITE_DE`) le demande explicitement (§6)._"
     )
     out.append("")
     for c in result.dynamic_checks:
