@@ -103,8 +103,16 @@ class JavaNetBeansProfile(Profile):
             elif f.path in jdbc_files:
                 f.layer = Layer.PERSISTENCE
                 f.layer_reason = "accès JDBC brut (DriverManager/Statement/SQL)"
-            # Sinon : couche laissée indéterminée → repérée par fan-in/taille
-            # (§4.3), souvent du métier appelé depuis les écrans.
+            elif f.ext == ".java":
+                # Métier par élimination (§4.6) : un `.java` qui n'est ni un
+                # formulaire Swing (Vue) ni un accès JDBC (Persistance) est, par
+                # défaut, du code applicatif — typiquement appelé depuis les
+                # gestionnaires d'événements des écrans (jXxxActionPerformed),
+                # ce que recoupe le fan-in (§4.3). Sans ce classement par défaut,
+                # tout le cœur métier restait « indéterminé » (couche vide).
+                f.layer = Layer.BUSINESS
+                f.layer_reason = "par élimination (ni Vue ni Persistance)"
+            # Les fichiers non `.java` (xml, properties, sql) restent indéterminés.
 
     # -- points d'attention SQL (§5.4) --------------------------------------
 
