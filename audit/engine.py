@@ -57,15 +57,40 @@ class Heuristics:
         self.exclusions = exclusions or Exclusions()
         self.func_def_patterns = [re.compile(p) for p in func_def_patterns]
         self._files: list[FileInfo] | None = None
+        # Cache du contenu : chaque fichier n'est lu du disque qu'une seule fois,
+        # puis réutilisé pour tous les comptages/greps (source_files, fan-in,
+        # SQL fragile, TODO, extraits…). Sans lui, un gros projet relit le disque
+        # à chaque passe (N fichiers × nombre de greps) et peut ne jamais rendre
+        # la main dans un budget raisonnable.
+        self._content_cache: dict[str, list[str]] = {}
+        # `_joined_cache` : même contenu joint en une chaîne, mémoïsé pour le
+        # fan-in qui grep chaque symbole sur le texte complet de chaque fichier.
+        self._joined_cache: dict[str, str] = {}
 
     # -- collecte ------------------------------------------------------------
 
     def _read_lines(self, abspath: str) -> list[str]:
+        """Lignes d'un fichier, lues du disque au plus une fois puis mises en cache."""
+        cached = self._content_cache.get(abspath)
+        if cached is not None:
+            return cached
         try:
             with open(abspath, encoding="utf-8", errors="replace") as fh:
-                return fh.read().splitlines()
+                lines = fh.read().splitlines()
         except OSError:
-            return []
+            lines = []
+        self._content_cache[abspath] = lines
+        return lines
+
+    def _read_text(self, abspath: str) -> str:
+        """Contenu joint (`\\n`) d'un fichier, mémoïsé — évite de re-joindre à
+        chaque symbole dans le fan-in (§4.3)."""
+        cached = self._joined_cache.get(abspath)
+        if cached is not None:
+            return cached
+        text = "\n".join(self._read_lines(abspath))
+        self._joined_cache[abspath] = text
+        return text
 
     def source_files(self) -> list[FileInfo]:
         """Parcours du dépôt, filtré par extensions + exclusions (§4.4)."""
@@ -145,7 +170,7 @@ class Heuristics:
         patterns = {name: re.compile(rf"\b{re.escape(name)}\b") for name in symbols}
         counts: Counter[str] = Counter()
         for f in self.source_files():
-            text = "\n".join(self._read_lines(os.path.join(self.repo, f.path)))
+            text = self._read_text(os.path.join(self.repo, f.path))
             for name, pat in patterns.items():
                 n = len(pat.findall(text))
                 if n:
