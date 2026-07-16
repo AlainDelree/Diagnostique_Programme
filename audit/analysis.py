@@ -14,6 +14,7 @@ honnêtement « indéterminé » et on renvoie le doute vers les pistes §6.
 from __future__ import annotations
 
 import os
+import re
 
 from .engine import Heuristics
 from .model import (
@@ -29,6 +30,10 @@ from .profiles.base import Profile
 
 # Seuil « fichier monolithique » (§8.1) : au-delà, un fichier concentre trop.
 MONOLITH_LOC = 400
+
+# Marqueurs d'intention laissés dans le code : à vérifier, pas des bugs avérés
+# → alimentent la section « TODO / incohérences » du rapport IA (§5.2).
+_TODO_MARKER = re.compile(r"\b(TODO|FIXME|XXX|HACK)\b")
 
 
 def run_audit(repo_path: str, forced_profile: str = "auto") -> AuditResult:
@@ -106,6 +111,17 @@ def _collect_findings(
             kind="absence de tests",
             description="aucun dossier de tests repéré",
             score=MONOLITH_LOC,  # significatif, remonte dans le tri
+        ))
+
+    # Marqueurs TODO/FIXME (§5.2 « TODO / incohérences à vérifier »).
+    for path, line, txt in h.grep(_TODO_MARKER.pattern):
+        marker = _TODO_MARKER.search(txt)
+        findings.append(Finding(
+            path=path,
+            line=line,
+            kind="TODO",
+            description=(txt[:120] if txt else marker.group(1) if marker else "marqueur"),
+            score=1.0,  # informatif : reste sous les vrais points d'attention au tri
         ))
 
     # Spécifiques à la techno (ex. SQL par concaténation du profil Java).
