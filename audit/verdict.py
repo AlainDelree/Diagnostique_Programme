@@ -90,7 +90,9 @@ def build_verdict(result: AuditResult, h: Heuristics) -> Verdict:
     if conv is not None:
         points.append(conv)
 
-    dup = _signal_duplication(files, h)
+    # Duplication : sur le seul code du projet — un copier-collé *interne* à une
+    # bibliothèque tierce embarquée (vendored) n'est pas la dette du projet (§4.6).
+    dup = _signal_duplication([f for f in files if not f.vendored], h)
     if dup is not None:
         points.append(dup)
 

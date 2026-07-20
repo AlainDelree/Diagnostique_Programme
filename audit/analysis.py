@@ -45,6 +45,9 @@ def run_audit(repo_path: str, forced_profile: str = "auto") -> AuditResult:
 
     h = profile.make_heuristics(repo_path)
     files = h.source_files()
+    # §4.6 : isoler d'abord le code tiers embarqué (vendored) pour qu'il soit
+    # exclu des couches, findings, fan-in et points d'entrée qui suivent.
+    profile.mark_vendored(h, files)
     profile.classify(h, files)  # §4.5 : étiquetage par convention
 
     result = AuditResult(
@@ -100,7 +103,11 @@ def _collect_findings(
     findings: list[Finding] = []
 
     # Fichiers monolithiques (§8.1) — pondérés pour ignorer tests/locale.
+    # Le code vendored (bibliothèque tierce embarquée) est exclu : ses gros
+    # fichiers ne sont pas de la dette *du projet* (§4.6).
     for f in files:
+        if f.vendored:
+            continue
         effective = f.loc * f.weight
         if effective >= MONOLITH_LOC:
             findings.append(Finding(

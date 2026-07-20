@@ -52,6 +52,11 @@ class FileInfo:
     layer: Layer = Layer.UNKNOWN
     layer_reason: str = ""  # "via convention DAO", "par fan-in", ...
     weight: float = 1.0
+    # Bibliothèque tierce *embarquée* dans les sources (vendored) : code non
+    # écrit par l'auteur du projet (ex. `com.toedter.*` glissé dans `src/`).
+    # Isolé des classements taille/fan-in/duplication et regroupé à part (§4.6).
+    vendored: bool = False
+    package_root: str = ""  # racine de package déduite (Java) — sert au regroupement
 
 
 @dataclass
@@ -192,7 +197,17 @@ class AuditResult:
     verdict: Verdict | None = None
 
     def files_by_layer(self, layer: Layer) -> list[FileInfo]:
-        return [f for f in self.files if f.layer == layer]
+        # Le code vendored (bibliothèque tierce embarquée) n'appartient à
+        # aucune couche du projet : il est présenté à part (§4.6).
+        return [f for f in self.files if f.layer == layer and not f.vendored]
+
+    def project_files(self) -> list[FileInfo]:
+        """Fichiers du projet lui-même (hors bibliothèques tierces embarquées)."""
+        return [f for f in self.files if not f.vendored]
+
+    def vendored_files(self) -> list[FileInfo]:
+        """Fichiers de bibliothèque tierce embarquée (vendored), regroupés à part (§4.6)."""
+        return [f for f in self.files if f.vendored]
 
     def findings_by_kind(self) -> dict[str, list[Finding]]:
         out: dict[str, list[Finding]] = {}

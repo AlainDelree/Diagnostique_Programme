@@ -60,6 +60,19 @@ class Profile:
             func_def_patterns=self.func_def_patterns,
         )
 
+    # -- code tiers embarqué / vendored (§4.6) ------------------------------
+
+    def mark_vendored(self, h: Heuristics, files: list[FileInfo]) -> None:
+        """Marque `f.vendored = True` sur les fichiers de bibliothèque tierce
+        *embarquée* dans les sources (ex. `com.toedter.*` glissé dans `src/`).
+
+        No-op par défaut : la notion de « code tiers dans mes sources » dépend
+        de la techno (paquet racine dominant pour Java). Un profil qui sait la
+        détecter surcharge cette méthode. Appelée *avant* `classify()` pour que
+        le code vendored soit exclu des couches, findings et fan-in (§4.6).
+        """
+        return None
+
     # -- étiquetage des couches (§4.5) --------------------------------------
 
     def layer_for(self, relpath: str) -> tuple[Layer, str] | None:

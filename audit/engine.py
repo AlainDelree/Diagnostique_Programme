@@ -119,11 +119,23 @@ class Heuristics:
         self._files = files
         return files
 
+    def project_files(self) -> list[FileInfo]:
+        """Fichiers du projet lui-même, hors bibliothèques tierces embarquées.
+
+        Base de tous les classements « qui compte » (taille §4.1, densité §4.2,
+        fan-in §4.3, grep des profils) : sans ce filtre, une bibliothèque
+        vendored (ex. `com.toedter.*`) domine à tort les classements car elle
+        est volumineuse et fortement appelée *dans son propre code*, noyant le
+        vrai code du projet (§4.6). Le marquage `vendored` est posé par le
+        profil (`mark_vendored`) avant tout appel à ces méthodes.
+        """
+        return [f for f in self.source_files() if not f.vendored]
+
     # -- §4.1 fichiers volumineux -------------------------------------------
 
     def large_files(self, top: int = 15) -> list[FileInfo]:
         """Fichiers source triés par LOC décroissant (pondéré pour le tri)."""
-        files = self.source_files()
+        files = self.project_files()
         return sorted(files, key=lambda f: f.loc * f.weight, reverse=True)[:top]
 
     # -- §4.2 dossiers denses -----------------------------------------------
@@ -131,7 +143,7 @@ class Heuristics:
     def dense_dirs(self, top: int = 15) -> list[tuple[str, int]]:
         """Nombre de fichiers source par dossier, trié décroissant."""
         counts: Counter[str] = Counter()
-        for f in self.source_files():
+        for f in self.project_files():
             d = os.path.dirname(f.path) or "."
             counts[d] += 1
         return counts.most_common(top)
@@ -145,7 +157,7 @@ class Heuristics:
         quelque part, pas n'importe quel identifiant.
         """
         symbols: dict[str, tuple[str, int]] = {}
-        for f in self.source_files():
+        for f in self.project_files():
             lines = self._read_lines(os.path.join(self.repo, f.path))
             for i, line in enumerate(lines, start=1):
                 for pat in self.func_def_patterns:
@@ -169,7 +181,7 @@ class Heuristics:
             return []
         patterns = {name: re.compile(rf"\b{re.escape(name)}\b") for name in symbols}
         counts: Counter[str] = Counter()
-        for f in self.source_files():
+        for f in self.project_files():
             text = self._read_text(os.path.join(self.repo, f.path))
             for name, pat in patterns.items():
                 n = len(pat.findall(text))
@@ -189,10 +201,14 @@ class Heuristics:
 
         Utilisé par les profils pour cartographier une couche (ex. accès JDBC
         du profil Java/NetBeans, §4.6). Lecture seule, aucun sous-processus.
+
+        Le code vendored est exclu : on ne veut ni classer, ni signaler la dette
+        (SQL fragile, TODO), ni détecter les points d'entrée (`main()`) d'une
+        bibliothèque tierce embarquée — seulement du vrai code du projet (§4.6).
         """
         rx = re.compile(pattern, flags)
         hits: list[tuple[str, int, str]] = []
-        for f in self.source_files():
+        for f in self.project_files():
             lines = self._read_lines(os.path.join(self.repo, f.path))
             for i, line in enumerate(lines, start=1):
                 if rx.search(line):
